@@ -52,15 +52,19 @@ export default async function handler(req, res) {
         }
       });
 
-      // If the body has already been parsed (e.g., by some middleware), we write it, otherwise pipe
-      if (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
-        telegramReq.write(JSON.stringify(req.body));
-        telegramReq.end();
-      } else if (req.body && typeof req.body === 'string') {
-        telegramReq.write(req.body);
+      if (req.method === 'GET' || req.method === 'HEAD') {
         telegramReq.end();
       } else {
-        req.pipe(telegramReq);
+        // If the body has already been parsed (e.g., by some middleware), we write it, otherwise pipe
+        if (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
+          telegramReq.write(JSON.stringify(req.body));
+          telegramReq.end();
+        } else if (req.body && typeof req.body === 'string') {
+          telegramReq.write(req.body);
+          telegramReq.end();
+        } else {
+          req.pipe(telegramReq);
+        }
       }
     } else {
       // JSON body format
