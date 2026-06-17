@@ -31,7 +31,9 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing token or method' });
     }
 
-    const telegramUrl = `https://api.telegram.org/bot${token}/${method}`;
+    const queryIndex = req.url.indexOf('?');
+    const queryString = queryIndex !== -1 ? req.url.substring(queryIndex) : '';
+    const telegramUrl = `https://api.telegram.org/bot${token}/${method}${queryString}`;
 
     if (isStream) {
       // Forward headers (removing host)
@@ -56,7 +58,10 @@ export default async function handler(req, res) {
         telegramReq.end();
       } else {
         // If the body has already been parsed (e.g., by some middleware), we write it, otherwise pipe
-        if (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
+        if (Buffer.isBuffer(req.body)) {
+          telegramReq.write(req.body);
+          telegramReq.end();
+        } else if (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
           telegramReq.write(JSON.stringify(req.body));
           telegramReq.end();
         } else if (req.body && typeof req.body === 'string') {
