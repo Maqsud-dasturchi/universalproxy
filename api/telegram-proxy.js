@@ -1,9 +1,27 @@
 import https from 'https';
 
+function proxyGet(telegramUrl, res) {
+  return new Promise((resolve, reject) => {
+    const telegramReq = https.request(telegramUrl, { method: 'GET' }, (telegramRes) => {
+      res.writeHead(telegramRes.statusCode, telegramRes.headers);
+      telegramRes.pipe(res);
+      telegramRes.on('end', resolve);
+    });
+
+    telegramReq.on('error', (err) => {
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'File proxy failed', details: err.message });
+      }
+      reject(err);
+    });
+
+    telegramReq.end();
+  });
+}
+
 export default async function handler(req, res) {
-  // CORS headers setup
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, HEAD');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
@@ -11,20 +29,29 @@ export default async function handler(req, res) {
   }
 
   try {
-    let token, method, payload;
+    // Fayl yuklash: /file/bot{token}/photos/file_7.jpg
+    const fileMatch = req.url.match(/\/file\/bot([^/]+)\/(.+)/);
+    if (fileMatch) {
+      const token = fileMatch[1];
+      const filePath = fileMatch[2].split('?')[0];
+      const queryIndex = req.url.indexOf('?');
+      const queryString = queryIndex !== -1 ? req.url.substring(queryIndex) : '';
+      const telegramUrl = `https://api.telegram.org/file/bot${token}/${filePath}${queryString}`;
+      await proxyGet(telegramUrl, res);
+      return;
+    }
+
+    let token, method;
     let isStream = false;
 
-    // Check if it's the /bot<token>/<method> style
     const urlMatch = req.url.match(/\/bot([^/]+)\/([^/\?]+)/);
     if (urlMatch) {
       token = urlMatch[1];
       method = urlMatch[2];
       isStream = true;
     } else if (req.body && req.body.token && req.body.method) {
-      // JSON body style
       token = req.body.token;
       method = req.body.method;
-      payload = req.body.payload;
     }
 
     if (!token || !method) {
@@ -36,7 +63,6 @@ export default async function handler(req, res) {
     const telegramUrl = `https://api.telegram.org/bot${token}/${method}${queryString}`;
 
     if (isStream) {
-      // Forward headers (removing host)
       const headers = { ...req.headers };
       delete headers.host;
 
@@ -57,7 +83,6 @@ export default async function handler(req, res) {
       if (req.method === 'GET' || req.method === 'HEAD') {
         telegramReq.end();
       } else {
-        // If the body has already been parsed (e.g., by some middleware), we write it, otherwise pipe
         if (Buffer.isBuffer(req.body)) {
           telegramReq.write(req.body);
           telegramReq.end();
@@ -72,7 +97,7 @@ export default async function handler(req, res) {
         }
       }
     } else {
-      // JSON body format
+      const payload = req.body?.payload;
       const postData = JSON.stringify(payload || {});
       const telegramReq = https.request(telegramUrl, {
         method: 'POST',

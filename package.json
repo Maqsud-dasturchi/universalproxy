@@ -1,7 +1,7 @@
 {
   "name": "telegram-api-proxy",
-  "version": "1.0.0",
-  "description": "Telegram API Proxy for Render and Vercel",
+  "version": "1.1.0",
+  "description": "Telegram API Proxy for Render and Vercel (matn + fayl)",
   "main": "server.js",
   "type": "module",
   "scripts": {

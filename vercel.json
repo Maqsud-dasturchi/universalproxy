@@ -8,6 +8,10 @@
   ],
   "routes": [
     {
+      "src": "/file/bot([^/]+)/(.*)",
+      "dest": "/api/telegram-proxy.js"
+    },
+    {
       "src": "/bot([^/]+)/([^/]+)",
       "dest": "/api/telegram-proxy.js"
     },
